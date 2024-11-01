@@ -64,8 +64,8 @@ blueprint:
               unit_of_measurement: seconds
         brightness_day:
           name: Day Brightness
-          description: Brightness level of the lights during the day (0-255).
-          default: 255
+          description: Brightness level of the lights during the day (%).
+          default: 100.0
           selector:
             number:
               min: 1.0
@@ -107,7 +107,7 @@ blueprint:
               time: {}
         brightness_night:
           name: Night Brightness
-          description: Brightness level of the lights during the night (0-255).
+          description: Brightness level of the lights during the night (%).
           default: 100
           selector:
             number:
@@ -142,6 +142,9 @@ trigger:
 action:
   - choose:
       - conditions:
+          - condition: state
+            entity_id: !input use_night_lights
+            state: "on"
           - condition: time
             after: !input night_light_start
             before: !input night_light_end
