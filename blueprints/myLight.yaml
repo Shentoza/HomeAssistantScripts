@@ -235,14 +235,14 @@ action:
           - service: light.turn_on
             target: !input on_lights
             data:
-              brightness: !input brightness_night
+              brightness_pct: !input brightness_night
               kelvin: !input color_temp_night
               transition: !input transition
     default:
       - service: light.turn_on
         target: !input on_lights
         data:
-          brightness: !input brightness_day
+          brightness_pct: !input brightness_day
           kelvin: !input color_temp_day
           transition: !input transition
   - delay:
