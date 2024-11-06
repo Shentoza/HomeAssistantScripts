@@ -201,63 +201,97 @@ variables:
   light_entities: '{{ expand(on_lights.entity_id) | map(attribute=''entity_id'') | list }}'
 action:
   - choose:
-      - alias: "By-Pass aus"
+      - alias: "On-Bypass aus"
         conditions:
-        - condition: and
-          conditions:
-            - '{{ use_bypass_on == "on_bypass_true" }}'
-            - condition: trigger
-              id: t_on_bypass_off
-        sequence:
-          - service: light.turn_off
-            target: !input on_lights
-            data:
-              transition: !input transition_off 
-      - alias: "Nightlight"
-        conditions:
-          - '{{ use_night_lights == "use_night_lights_true" }}'
-          - condition: time
-            after: !input night_light_start
-            before: !input night_light_end
-          - condition: or
-            conditions:
-              - condition: template
-                value_template: >
-                  {{ expand(on_lights.entity_id) | selectattr('state', 'eq', 'off') | list | length > 0 }}
-              - condition: trigger
-                id: t_on
-              - condition: and
-                conditions:
-                  - '{{ use_bypass_on == "on_bypass_true" }}'
-                  - condition: trigger
-                    id: t_on_bypass_on
-        sequence:
-          - service: light.turn_on
-            target: !input on_lights
-            data:
-              brightness_pct: !input brightness_night
-              kelvin: !input color_temp_night
-              transition: !input transition
-    default:
-      - service: light.turn_on
-        target: !input on_lights
-        data:
-          brightness_pct: !input brightness_day
-          kelvin: !input color_temp_day
-          transition: !input transition
-  - delay:
-      minutes: !input light_duration
-  - choose:
-      - alias: "Licht aus!"
-        conditions:
-        - condition: or
-          conditions:
-            - '{{ use_bypass_on == "on_bypass_false" }}'
-            - condition: state
-              entity_id: !input bypass_on
-              state: "off"
+          - '{{ use_bypass_on == "on_bypass_true" }}'
+          - condition: trigger
+            id: t_on_bypass_off
         sequence:
           - service: light.turn_off
             target: !input on_lights
             data:
               transition: !input transition_off
+      - alias: "Licht jetzt dimmen"
+        conditions:
+            - '{{ use_night_lights == "use_night_lights_true" }}'
+            - condition: time
+              after: !input night_light_start
+              before: !input night_light_end
+            - condition: template
+              value_template: >
+                {{ expand(on_lights.entity_id) | selectattr('state', 'eq', 'on') | list | length > 0 }}
+        sequence:
+            - service: light.turn_on
+              target: !input on_lights
+              data:
+                brightness_pct: !input brightness_night
+                kelvin: !input color_temp_night
+                transition: !input transition
+      - alias: "On-Bypass an"
+        conditions:
+          - '{{ use_bypass_on == "on_bypass_true" }}'
+          - condition: trigger
+            id: t_on_bypass_on
+        sequence:
+          - choose:
+              - alias: "Nachtlicht"
+                conditions:
+                  - '{{ use_night_lights == "use_night_lights_true" }}'
+                  - condition: time
+                    after: !input night_light_start
+                    before: !input night_light_end
+                sequence:
+                  - service: light.turn_on
+                    target: !input on_lights
+                    data:
+                      brightness_pct: !input brightness_night
+                      kelvin: !input color_temp_night
+                      transition: !input transition
+            default:  
+            - service: light.turn_on
+              target: !input on_lights
+              data:
+                brightness_pct: !input brightness_day
+                kelvin: !input color_temp_day
+                transition: !input transition
+    default:
+    - sequence:
+        - choose:
+            - alias: "Nightlight"
+              conditions:
+                - '{{ use_night_lights == "use_night_lights_true" }}'
+                - condition: time
+                  after: !input night_light_start
+                  before: !input night_light_end
+                - condition: trigger
+                  id: t_on
+              sequence:
+                - service: light.turn_on
+                  target: !input on_lights
+                  data:
+                    brightness_pct: !input brightness_night
+                    kelvin: !input color_temp_night
+                    transition: !input transition
+          default:
+            - service: light.turn_on
+              target: !input on_lights
+              data:
+                brightness_pct: !input brightness_day
+                kelvin: !input color_temp_day
+                transition: !input transition  
+        - delay:
+            minutes: !input light_duration
+        - choose:
+            - alias: "Licht aus!"
+              conditions:
+              - condition: or
+                conditions:
+                  - '{{ use_bypass_on == "on_bypass_false" }}'
+                  - condition: state
+                    entity_id: !input bypass_on
+                    state: "off"
+              sequence:
+                - service: light.turn_off
+                  target: !input on_lights
+                  data:
+                    transition: !input transition_off
