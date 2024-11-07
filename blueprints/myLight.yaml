@@ -26,6 +26,15 @@ blueprint:
       name: Lichter *
       icon: mdi:lightbulb-outline
       input:
+        on_lights:
+          name: Lights
+          description: The lights to turn on.
+          default: []
+          selector:
+            target:
+              entity:
+               - domain: 
+                 - light
         light_duration:
           name: Light Duration
           description: Duration for which the lights should stay on.
@@ -37,15 +46,6 @@ blueprint:
               step: 0.5
               unit_of_measurement: minutes
               mode: slider
-        on_lights:
-          name: Lights
-          description: The lights to turn on.
-          default: []
-          selector:
-            target:
-              entity:
-               - domain: 
-                 - light
         transition:
           name: Transition Time
           description: Transition time for turning on/off the lights (in seconds).
@@ -69,7 +69,7 @@ blueprint:
         brightness_day:
           name: Day Brightness
           description: Brightness level of the lights(%).
-          default: 100.0
+          default: 90.0
           selector:
             number:
               min: 1.0
@@ -94,7 +94,7 @@ blueprint:
         use_bypass_on:
           name: Use On-Bypass
           description: When enabled the specified toggle will override the automation.
-          default: on_bypass_false
+          default: on_bypass_true
           selector:
             select:
               options:
@@ -120,7 +120,7 @@ blueprint:
         use_night_lights:
           name: Use Night Lights
           description: Use night settings for the lights.
-          default: use_night_lights_false
+          default: use_night_lights_true
           selector:
             select:
               options:
@@ -140,13 +140,13 @@ blueprint:
         night_light_end:
           name: Night Light End Time
           description: End time for night lights.
-          default: "07:00:00"
+          default: "07:20:00"
           selector:
               time: {}
         brightness_night:
           name: Night Brightness
           description: Brightness level of the lights during the night (%).
-          default: 100
+          default: 5.0
           selector:
             number:
               min: 0.0
@@ -170,6 +170,12 @@ trigger:
     entity_id: !input motion_sensor
     to: "on"
     id: t_on
+  - platform: state
+    entity_id: !input motion_sensor
+    to: "off"
+    for:
+      minutes: !input light_duration
+    id: t_off
   - platform: time
     at: !input night_light_start
     id: t_night_start
@@ -206,6 +212,21 @@ action:
           - '{{ use_bypass_on == "on_bypass_true" }}'
           - condition: trigger
             id: t_on_bypass_off
+        sequence:
+          - service: light.turn_off
+            target: !input on_lights
+            data:
+              transition: !input transition_off
+      - alias: "Licht aus nach Zeit"
+        conditions:
+          - condition: trigger
+            id: t_off
+          - condition: or
+            conditions:
+              - '{{ use_bypass_on == "on_bypass_false" }}'
+              - condition: state
+                entity_id: !input bypass_on
+                state: "off"
         sequence:
           - service: light.turn_off
             target: !input on_lights
@@ -279,19 +300,3 @@ action:
                 brightness_pct: !input brightness_day
                 kelvin: !input color_temp_day
                 transition: !input transition  
-        - delay:
-            minutes: !input light_duration
-        - choose:
-            - alias: "Licht aus!"
-              conditions:
-                - condition: or
-                  conditions:
-                    - '{{ use_bypass_on == "on_bypass_false" }}'
-                    - condition: state
-                      entity_id: !input bypass_on
-                      state: "off"
-              sequence:
-                - service: light.turn_off
-                  target: !input on_lights
-                  data:
-                    transition: !input transition_off
