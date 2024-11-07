@@ -284,12 +284,12 @@ action:
         - choose:
             - alias: "Licht aus!"
               conditions:
-              - condition: or
-                conditions:
-                  - '{{ use_bypass_on == "on_bypass_false" }}'
-                  - condition: state
-                    entity_id: !input bypass_on
-                    state: "off"
+                - condition: or
+                  conditions:
+                    - '{{ use_bypass_on == "on_bypass_false" }}'
+                    - condition: state
+                      entity_id: !input bypass_on
+                      state: "off"
               sequence:
                 - service: light.turn_off
                   target: !input on_lights
