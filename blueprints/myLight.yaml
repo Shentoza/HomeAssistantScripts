@@ -284,15 +284,17 @@ action:
                 - condition: time
                   after: !input night_light_start
                   before: !input night_light_end
-                - condition: trigger
-                  id: t_on
               sequence:
-                - service: light.turn_on
-                  target: !input on_lights
-                  data:
-                    brightness_pct: !input brightness_night
-                    kelvin: !input color_temp_night
-                    transition: !input transition
+                - if:
+                    - condition: trigger
+                      id: t_on
+                  then:  
+                    - service: light.turn_on
+                      target: !input on_lights
+                      data:
+                        brightness_pct: !input brightness_night
+                        kelvin: !input color_temp_night
+                        transition: !input transition
           default:
             - service: light.turn_on
               target: !input on_lights
