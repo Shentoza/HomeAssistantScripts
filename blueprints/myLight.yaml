@@ -232,12 +232,11 @@ action:
             target: !input on_lights
             data:
               transition: !input transition_off
-      - alias: "Licht jetzt dimmen"
+      - alias: "Nachtlicht Transition An"
         conditions:
             - '{{ use_night_lights == "use_night_lights_true" }}'
-            - condition: time
-              after: !input night_light_start
-              before: !input night_light_end
+            - condition: trigger
+              id: t_night_start
             - condition: template
               value_template: >
                 {{ expand(on_lights.entity_id) | selectattr('state', 'eq', 'on') | list | length > 0 }}
@@ -248,6 +247,23 @@ action:
                 brightness_pct: !input brightness_night
                 kelvin: !input color_temp_night
                 transition: !input transition
+
+      - alias: "Nachtlicht Transition Aus"
+        conditions:
+            - '{{ use_night_lights == "use_night_lights_true" }}'
+            - condition: trigger
+              id: t_night_end
+            - condition: template
+              value_template: >
+                {{ expand(on_lights.entity_id) | selectattr('state', 'eq', 'on') | list | length > 0 }}
+        sequence:
+            - service: light.turn_on
+              target: !input on_lights
+              data:
+                brightness_pct: !input brightness_day
+                kelvin: !input color_temp_day
+                transition: !input transition
+
       - alias: "On-Bypass an"
         conditions:
           - '{{ use_bypass_on == "on_bypass_true" }}'
@@ -275,6 +291,16 @@ action:
                 brightness_pct: !input brightness_day
                 kelvin: !input color_temp_day
                 transition: !input transition
+      - alias: "Tu nichts beim Night Light"
+        conditions:
+          - '{{ use_night_lights == "use_night_lights_true" }}'
+          - condition: or
+            conditions:
+              - condition: trigger
+                id: t_night_start
+              - condition: trigger
+                id: t_night_end
+        sequence: []
     default:
     - sequence:
         - choose:
