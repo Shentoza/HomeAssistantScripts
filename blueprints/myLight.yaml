@@ -46,26 +46,6 @@ blueprint:
               step: 0.5
               unit_of_measurement: minutes
               mode: slider
-        transition:
-          name: Transition Time
-          description: Transition time for turning on/off the lights (in seconds).
-          default: 1
-          selector:
-            number:
-              min: 0.0
-              max: 5.0
-              step: 0.1
-              unit_of_measurement: seconds
-        transition_off:
-          name: Transition Time Off
-          description: Transition time for turning off the lights (in seconds).
-          default: 1
-          selector:
-            number:
-              min: 0.0
-              max: 5.0
-              step: 0.1
-              unit_of_measurement: seconds
         brightness_day:
           name: Day Brightness
           description: Brightness level of the lights(%).
@@ -199,8 +179,6 @@ variables:
   color_temp_night: !input color_temp_night
   brightness_day: !input brightness_day
   color_temp_day: !input color_temp_day
-  transition: !input transition
-  transition_off: !input transition_off
   on_lights: !input on_lights
   light_duration: !input light_duration
   use_bypass_on: !input use_bypass_on
@@ -215,8 +193,6 @@ action:
         sequence:
           - service: light.turn_off
             target: !input on_lights
-            data:
-              transition: !input transition_off
       - alias: "Licht aus nach Zeit"
         conditions:
           - condition: trigger
@@ -230,8 +206,6 @@ action:
         sequence:
           - service: light.turn_off
             target: !input on_lights
-            data:
-              transition: !input transition_off
       - alias: "Nachtlicht Transition An"
         conditions:
             - '{{ use_night_lights == "use_night_lights_true" }}'
@@ -246,7 +220,6 @@ action:
               data:
                 brightness_pct: !input brightness_night
                 kelvin: !input color_temp_night
-                transition: !input transition
 
       - alias: "Nachtlicht Transition Aus"
         conditions:
@@ -262,7 +235,6 @@ action:
               data:
                 brightness_pct: !input brightness_day
                 kelvin: !input color_temp_day
-                transition: !input transition
 
       - alias: "On-Bypass an"
         conditions:
@@ -283,14 +255,12 @@ action:
                     data:
                       brightness_pct: !input brightness_night
                       kelvin: !input color_temp_night
-                      transition: !input transition
             default:  
             - service: light.turn_on
               target: !input on_lights
               data:
                 brightness_pct: !input brightness_day
                 kelvin: !input color_temp_day
-                transition: !input transition
       - alias: "Tu nichts beim Night Light"
         conditions:
           - '{{ use_night_lights == "use_night_lights_true" }}'
@@ -320,11 +290,9 @@ action:
                       data:
                         brightness_pct: !input brightness_night
                         kelvin: !input color_temp_night
-                        transition: !input transition
           default:
             - service: light.turn_on
               target: !input on_lights
               data:
                 brightness_pct: !input brightness_day
                 kelvin: !input color_temp_day
-                transition: !input transition  
