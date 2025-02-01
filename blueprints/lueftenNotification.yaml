@@ -90,7 +90,7 @@ action:
           {% set humidity_change = states(device) | float %}
           {% if humidity_change > humidity_difference_threshold %}
             {% set area = area_name(device) %}
-            {% set ns.messages = ns.messages + [~'- ' ~ area ~ ': ' ~ humidity_change|round(2) ~ '%'] %}
+            {% set ns.messages = ns.messages + ['- ' ~ area ~ ': ' ~ humidity_change|round(2) ~ '%'] %}
           {% endif %}
         {% endfor %}
         {% if ns.messages | length > 0 %}
