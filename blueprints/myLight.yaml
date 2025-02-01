@@ -219,7 +219,7 @@ action:
               target: !input on_lights
               data:
                 brightness_pct: !input brightness_night
-                kelvin: !input color_temp_night
+                color_temp_kelvin: !input color_temp_night
 
       - alias: "Nachtlicht Transition Aus"
         conditions:
@@ -234,7 +234,7 @@ action:
               target: !input on_lights
               data:
                 brightness_pct: !input brightness_day
-                kelvin: !input color_temp_day
+                color_temp_kelvin: !input color_temp_day
 
       - alias: "On-Bypass an"
         conditions:
@@ -254,13 +254,13 @@ action:
                     target: !input on_lights
                     data:
                       brightness_pct: !input brightness_night
-                      kelvin: !input color_temp_night
+                      color_temp_kelvin: !input color_temp_night
             default:  
             - service: light.turn_on
               target: !input on_lights
               data:
                 brightness_pct: !input brightness_day
-                kelvin: !input color_temp_day
+                color_temp_kelvin: !input color_temp_day
       - alias: "Tu nichts beim Night Light"
         conditions:
           - '{{ use_night_lights == "use_night_lights_true" }}'
@@ -289,10 +289,10 @@ action:
                       target: !input on_lights
                       data:
                         brightness_pct: !input brightness_night
-                        kelvin: !input color_temp_night
+                        color_temp_kelvin: !input color_temp_night
           default:
             - service: light.turn_on
               target: !input on_lights
               data:
                 brightness_pct: !input brightness_day
-                kelvin: !input color_temp_day
+                color_temp_kelvin: !input color_temp_day
