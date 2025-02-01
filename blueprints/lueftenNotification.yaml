@@ -1,0 +1,152 @@
+blueprint:
+  name: Lüften Benachrichtigung
+  description: >
+    Notifies to open windows when outside humidity is more than a specified percentage lower than
+    inside, and temperatures are about even. Calculates dew point for larger
+    temperature differences.
+  domain: automation
+  input:
+    devices:
+      name: Zu prüfende Geräte
+      description: Geräte, deren mögliche Luftfeuchtigkeitsänderung berücksichtigt werden soll
+      selector:
+        entity:
+          domain: sensor
+          multiple: true
+    outdoor_sensor:
+      name: Outdoor Temperature Sensor
+      description: The sensor to monitor the outdoor temperature.
+      selector:
+        entity:
+          domain: sensor
+    notification_timer:
+      name: Notification Timer
+      description: Input datetime entity to track the last notification time.
+      selector:
+        entity:
+          domain: input_datetime
+    notification_recipients:
+      name: Zu prüfende Personen
+      description: Wenn diese Personen nach Hause kommen, soll geprüft werden, ob gelüftet werden muss.
+      selector:
+        entity:
+          domain: person
+          multiple: true
+    humidity_difference_threshold:
+      name: Humidity Difference Threshold
+      description: The minimum humidity difference to trigger a notification.
+      default: 15.0
+      selector:
+        number:
+          min: 0.0
+          max: 60.0
+          step: 0.1
+          unit_of_measurement: '%'
+
+variables:
+  devices: !input devices
+  humidity_difference_threshold: !input humidity_difference_threshold
+
+trigger:
+  - platform: numeric_state
+    id: t_humidity_reached
+    entity_id: !input devices
+    above: !input humidity_difference_threshold
+    for:
+      hours: 0
+      minutes: 5
+      seconds: 0
+      milliseconds: 0
+  - platform: numeric_state
+    id: t_cold_enough
+    entity_id: !input outdoor_sensor
+    below: 24
+  - platform: zone
+    entity_id: !input notification_recipients
+    zone: zone.home
+    event: enter
+
+condition:
+  - condition: numeric_state
+    entity_id: !input outdoor_sensor
+    below: 24
+  - condition: template
+    value_template: >
+      {% for device in devices %}
+        {% if states(device) | float(default=0) > humidity_difference_threshold %}
+          {{ true }}
+        {% endif %}
+      {% endfor %}
+      {{ false }}
+  - condition: template
+    value_template: >
+      {{ now().timestamp() > as_timestamp(states('!input notification_timer')) + 21600 }}
+
+action:
+  - variables:
+      sending_message: >
+        {% set ns = namespace(messages=[]) %}
+        {% for device in devices %}
+          {% set humidity_change = states(device) | float %}
+          {% if humidity_change > humidity_difference_threshold %}
+            {% set area = area_name(device) %}
+            {% set ns.messages = ns.messages + [~'- ' ~ area ~ ': ' ~ humidity_change|round(2) ~ '%'] %}
+          {% endif %}
+        {% endfor %}
+        {% if ns.messages | length > 0 %}
+          {{ ns.messages | join('\n') }}
+        {% else %}
+          Keine Luftfeuchtigkeitsänderungen festgestellt.
+        {% endif %}
+  - choose:
+      - conditions:
+          - condition: state
+            entity_id: person.shentoza
+            state: home
+        sequence:
+          - service: notify.mobile_app_fp4
+            data:
+              title: Lüften - Mögliche Änderung
+              message: "{{ sending_message }}"
+              data:
+                notification_icon: mdi:air-filter
+                tag: LUEFTEN_NOTIFICATION
+                alert_once: true
+                actions:
+                  - action: LUEFTEN_ANSWERED
+                    title: Lüften
+      - conditions:
+          - condition: state
+            entity_id: person.caro
+            state: home
+        sequence:
+          - service: notify.mobile_app_caro_s_poco
+            data:
+              title: Lüften - Möglich Änderung
+              message: "{{ sending_message }}"
+              data:
+                notification_icon: mdi:air-filter
+                tag: LUEFTEN_NOTIFICATION
+                alert_once: true
+                actions:
+                  - action: LUEFTEN_ANSWERED
+                    title: Lüften
+  - wait_for_trigger:
+      - platform: event
+        event_type: mobile_app_notification_action
+        event_data:
+          action: LUEFTEN_ANSWERED
+    timeout: "02:00:00"
+  - service: input_datetime.set_datetime
+    target:
+      entity_id: !input notification_timer
+    data:
+      timestamp: "{{ now().timestamp() }}"
+  - service: notify.notify
+    data:
+      message: clear_notification
+      data:
+        priority: high
+        tag: LUEFTEN_NOTIFICATION
+
+mode: single
