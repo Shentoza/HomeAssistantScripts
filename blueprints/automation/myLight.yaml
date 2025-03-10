@@ -1,0 +1,298 @@
+blueprint:
+  name: Motion-activated lights with night mode
+  description: Turn on lights when motion is detected, with a night mode option.
+  domain: automation
+  input:
+    # Trigger Inputs
+    trigger:
+      name: Trigger *
+      icon: mdi:cog-outline
+      collapsed: true
+      input:
+        motion_sensor:
+          name: Motion Sensor
+          description: The motion sensor that triggers the lights.
+          default: []
+          selector:
+            entity:
+              filter:
+              - domain:
+                - binary_sensor
+                - schedule
+              multiple: true
+    # Light Settings
+    light_settings:
+      collapsed: true
+      name: Lichter *
+      icon: mdi:lightbulb-outline
+      input:
+        on_lights:
+          name: Lights
+          description: The lights to turn on.
+          default: []
+          selector:
+            target:
+              entity:
+               - domain: 
+                 - light
+        light_duration:
+          name: Light Duration
+          description: Duration for which the lights should stay on.
+          default: 5
+          selector:
+            number:
+              min: 0.0
+              max: 30.0
+              step: 0.5
+              unit_of_measurement: minutes
+              mode: slider
+        brightness_day:
+          name: Day Brightness
+          description: Brightness level of the lights(%).
+          default: 90.0
+          selector:
+            number:
+              min: 1.0
+              max: 100.0
+              step: 1.0
+              unit_of_measurement: '%'
+        color_temp_day:
+          name: Day Color Temperature
+          description: Color temperature of the lights (in Kelvin).
+          default: 2500
+          selector:
+            number:
+              min: 2000.0
+              max: 8000.0
+              step: 100.0
+              unit_of_measurement: kelvin
+    bypass:
+      name: Bypass
+      icon: mdi:debug-step-over
+      collapsed: true
+      input:
+        use_bypass_on:
+          name: Use On-Bypass
+          description: When enabled the specified toggle will override the automation.
+          default: on_bypass_true
+          selector:
+            select:
+              options:
+              - label: Enable the on-bypass option
+                value: on_bypass_true
+              - label: Disable the on-bypass option
+                value: on_bypass_false
+              custom_value: false
+              multiple: false
+              sort: false
+        bypass_on:
+          name: Bypass On
+          description: The input booleans to bypass the automation.
+          default: []
+          selector:
+            entity:
+              multiple: true
+    night_light_settings:
+      name: Nachtlicht Settings
+      icon: mdi:weather-night
+      collapsed: true
+      input:
+        use_night_lights:
+          name: Use Night Lights
+          description: Use night settings for the lights.
+          default: use_night_lights_true
+          selector:
+            select:
+              options:
+              - label: Enable night lights
+                value: use_night_lights_true
+              - label: Disable night lights
+                value: use_night_lights_false
+              custom_value: false
+              multiple: false
+              sort: false
+        night_light_start:
+          name: Night Light Start Time
+          description: Start time for night lights.
+          default: "23:00:00"
+          selector:
+              time: {}
+        night_light_end:
+          name: Night Light End Time
+          description: End time for night lights.
+          default: "07:20:00"
+          selector:
+              time: {}
+        brightness_night:
+          name: Night Brightness
+          description: Brightness level of the lights during the night (%).
+          default: 5.0
+          selector:
+            number:
+              min: 0.0
+              max: 100.0
+              step: 1.0
+              unit_of_measurement: '%'
+        color_temp_night:
+          name: Night Color Temperature
+          description: Color temperature of the lights during the night (in Kelvin).
+          default: 2500
+          selector:
+            number:
+              min: 2000
+              max: 8000
+              step: 100.0
+              unit_of_measurement: kelvin
+mode: restart
+max_exceeded: silent
+trigger:
+  - platform: state
+    entity_id: !input motion_sensor
+    to: "on"
+    id: t_on
+  - platform: state
+    entity_id: !input motion_sensor
+    to: "off"
+    for:
+      minutes: !input light_duration
+    id: t_off
+  - platform: time
+    at: !input night_light_start
+    id: t_night_start
+  - platform: time
+    at: !input night_light_end
+    id: t_night_end
+  - platform: state
+    entity_id: !input bypass_on
+    to: "on"
+    id: t_on_bypass_on
+  - platform: state
+    id: t_on_bypass_off
+    entity_id: !input bypass_on
+    from: "on"
+    to: "off"
+variables:
+  use_night_lights: !input use_night_lights
+  night_light_start: !input night_light_start
+  night_light_end: !input night_light_end
+  brightness_night: !input brightness_night
+  color_temp_night: !input color_temp_night
+  brightness_day: !input brightness_day
+  color_temp_day: !input color_temp_day
+  on_lights: !input on_lights
+  light_duration: !input light_duration
+  use_bypass_on: !input use_bypass_on
+  light_entities: '{{ expand(on_lights.entity_id) | map(attribute=''entity_id'') | list }}'
+action:
+  - choose:
+      - alias: "On-Bypass aus"
+        conditions:
+          - '{{ use_bypass_on == "on_bypass_true" }}'
+          - condition: trigger
+            id: t_on_bypass_off
+        sequence:
+          - service: light.turn_off
+            target: !input on_lights
+      - alias: "Licht aus nach Zeit"
+        conditions:
+          - condition: trigger
+            id: t_off
+          - condition: or
+            conditions:
+              - '{{ use_bypass_on == "on_bypass_false" }}'
+              - condition: state
+                entity_id: !input bypass_on
+                state: "off"
+        sequence:
+          - service: light.turn_off
+            target: !input on_lights
+      - alias: "Nachtlicht Transition An"
+        conditions:
+            - '{{ use_night_lights == "use_night_lights_true" }}'
+            - condition: trigger
+              id: t_night_start
+            - condition: template
+              value_template: >
+                {{ expand(on_lights.entity_id) | selectattr('state', 'eq', 'on') | list | length > 0 }}
+        sequence:
+            - service: light.turn_on
+              target: !input on_lights
+              data:
+                brightness_pct: !input brightness_night
+                color_temp_kelvin: !input color_temp_night
+
+      - alias: "Nachtlicht Transition Aus"
+        conditions:
+            - '{{ use_night_lights == "use_night_lights_true" }}'
+            - condition: trigger
+              id: t_night_end
+            - condition: template
+              value_template: >
+                {{ expand(on_lights.entity_id) | selectattr('state', 'eq', 'on') | list | length > 0 }}
+        sequence:
+            - service: light.turn_on
+              target: !input on_lights
+              data:
+                brightness_pct: !input brightness_day
+                color_temp_kelvin: !input color_temp_day
+
+      - alias: "On-Bypass an"
+        conditions:
+          - '{{ use_bypass_on == "on_bypass_true" }}'
+          - condition: trigger
+            id: t_on_bypass_on
+        sequence:
+          - choose:
+              - alias: "Nachtlicht"
+                conditions:
+                  - '{{ use_night_lights == "use_night_lights_true" }}'
+                  - condition: time
+                    after: !input night_light_start
+                    before: !input night_light_end
+                sequence:
+                  - service: light.turn_on
+                    target: !input on_lights
+                    data:
+                      brightness_pct: !input brightness_night
+                      color_temp_kelvin: !input color_temp_night
+            default:  
+            - service: light.turn_on
+              target: !input on_lights
+              data:
+                brightness_pct: !input brightness_day
+                color_temp_kelvin: !input color_temp_day
+      - alias: "Tu nichts beim Night Light"
+        conditions:
+          - '{{ use_night_lights == "use_night_lights_true" }}'
+          - condition: or
+            conditions:
+              - condition: trigger
+                id: t_night_start
+              - condition: trigger
+                id: t_night_end
+        sequence: []
+    default:
+    - sequence:
+        - choose:
+            - alias: "Nightlight"
+              conditions:
+                - '{{ use_night_lights == "use_night_lights_true" }}'
+                - condition: time
+                  after: !input night_light_start
+                  before: !input night_light_end
+              sequence:
+                - if:
+                    - condition: trigger
+                      id: t_on
+                  then:  
+                    - service: light.turn_on
+                      target: !input on_lights
+                      data:
+                        brightness_pct: !input brightness_night
+                        color_temp_kelvin: !input color_temp_night
+          default:
+            - service: light.turn_on
+              target: !input on_lights
+              data:
+                brightness_pct: !input brightness_day
+                color_temp_kelvin: !input color_temp_day

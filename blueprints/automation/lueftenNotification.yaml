@@ -1,5 +1,6 @@
 blueprint:
   name: Lüften Benachrichtigung
+  author: Shentoza
   description: >
     Notifies to open windows when outside humidity is more than a specified percentage lower than
     inside, and temperatures are about even. Calculates dew point for larger
@@ -32,6 +33,12 @@ blueprint:
         entity:
           domain: person
           multiple: true
+    notification_script:
+      name: Notification Script
+      description: The script to use for notifications.
+      selector:
+        entity: 
+          domain: script
     humidity_difference_threshold:
       name: Humidity Difference Threshold
       description: The minimum humidity difference to trigger a notification.
@@ -42,12 +49,21 @@ blueprint:
           max: 60.0
           step: 0.1
           unit_of_measurement: '%'
+    trigger_input:
+      name: Auslöser
+      description: Wann soll die Ausführung geprüft werden?
+      selector:
+        trigger:
 
 variables:
   devices: !input devices
   humidity_difference_threshold: !input humidity_difference_threshold
+  notification_timer: !input notification_timer
+  now_timestamp: "{{ now().timestamp() }}"
+  next_notification_timestamp: "{{ as_timestamp(states('!input notification_timer')) | float(default=0) }}"
 
-trigger:
+triggers: 
+  - triggers: !input trigger_input
   - platform: numeric_state
     id: t_humidity_reached
     entity_id: !input devices
@@ -65,6 +81,7 @@ trigger:
     entity_id: !input notification_recipients
     zone: zone.home
     event: enter
+  
 
 condition:
   - condition: numeric_state
@@ -72,15 +89,17 @@ condition:
     below: 24
   - condition: template
     value_template: >
+      {% set ns = namespace(result=false) %}
       {% for device in devices %}
         {% if states(device) | float(default=0) > humidity_difference_threshold %}
-          {{ true }}
+          {% set ns.result = true %}
+          {% break %}
         {% endif %}
       {% endfor %}
-      {{ false }}
+      {{ ns.result }}
   - condition: template
     value_template: >
-      {{ now().timestamp() > as_timestamp(states('!input notification_timer')) + 21600 }}
+      {{ now_timestamp >= next_notification_timestamp }}
 
 action:
   - variables:
@@ -98,39 +117,20 @@ action:
         {% else %}
           Keine Luftfeuchtigkeitsänderungen festgestellt.
         {% endif %}
-  - choose:
-      - conditions:
-          - condition: state
-            entity_id: person.shentoza
-            state: home
-        sequence:
-          - service: notify.mobile_app_fp4
-            data:
-              title: Lüften - Mögliche Änderung
-              message: "{{ sending_message }}"
-              data:
-                notification_icon: mdi:air-filter
-                tag: LUEFTEN_NOTIFICATION
-                alert_once: true
-                actions:
-                  - action: LUEFTEN_ANSWERED
-                    title: Lüften
-      - conditions:
-          - condition: state
-            entity_id: person.caro
-            state: home
-        sequence:
-          - service: notify.mobile_app_caro_s_poco
-            data:
-              title: Lüften - Möglich Änderung
-              message: "{{ sending_message }}"
-              data:
-                notification_icon: mdi:air-filter
-                tag: LUEFTEN_NOTIFICATION
-                alert_once: true
-                actions:
-                  - action: LUEFTEN_ANSWERED
-                    title: Lüften
+  - action: !input notification_script
+    metadata: {}
+    data: 
+      modus: 'Sortiert Zuhause'
+      message_data:
+        title: Lüften - Mögliche Änderung
+        message: "{{ sending_message }}"
+        data:
+          notification_icon: mdi:air-filter
+          tag: LUEFTEN_NOTIFICATION
+          alert_once: true
+          actions:
+            - action: LUEFTEN_ANSWERED
+              title: Lüften
   - wait_for_trigger:
       - platform: event
         event_type: mobile_app_notification_action
@@ -141,7 +141,7 @@ action:
     target:
       entity_id: !input notification_timer
     data:
-      timestamp: "{{ now().timestamp() }}"
+      timestamp: "{{ now().timestamp() + 21600 }}"
   - service: notify.notify
     data:
       message: clear_notification

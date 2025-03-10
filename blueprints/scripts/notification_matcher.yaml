@@ -1,0 +1,73 @@
+blueprint:
+  name: Notification Matcher
+  domain: script
+  author: Shentoza
+  description: Matcht eine Liste an Personen, mit einer Liste an Geräten, die Benachrichtigungen erhalten sollen. Kann verwendet werden um einer Person eine Nachricht zu senden.
+  input:
+    people:
+      name: People
+      description: People die benachrichtigt werden sollen
+      selector:
+        entity:
+          domain: person
+          multiple: true
+    tracking_devices:
+      name: Geräte
+      description: zu benachrichtigende Geräte
+      selector:
+        entity:
+          domain: device_tracker
+          multiple: true
+variables:
+  people: !input people
+  tracking_devices: !input tracking_devices
+  all_people_device_list: >
+    {% set notifies = tracking_devices | map('regex_replace','^device_tracker\.','notify.mobile_app_') | list %}
+    {{ zip(people,notifies) | list }}
+
+fields:
+  modus:
+    selector:
+      select:
+        options:
+          - 'Alle'
+          - 'Sortiert Zuhause'
+          - 'Alle Zuhause'
+        multiple: false
+    name: Modus
+    required: true
+    default: 'Sortiert Zuhause'
+  message_data:
+    selector:
+      object: {}
+    name: message_data
+    default:
+      title: Test-Titel
+      message: Test-Nachricht
+      data:
+        notification_icon: mdi:air-filter
+        tag: TEST_TAG
+        alert_once: true
+        actions:
+          - action: TEST_ACTION
+            title: Test Action Text
+
+sequence:
+  - repeat:
+      sequence:
+        - condition: >
+            {% if modus in ['Alle Zuhause', 'Sortiert Zuhause'] %}
+              {{ is_state(all_people_device_list[repeat.index-1][0],'home') }}
+            {% else %}
+              true
+            {% endif %}
+        - service: >
+            {{ all_people_device_list[repeat.index-1][1] }}
+          data: "{{ message_data }}"
+      until: >
+        {% if modus == 'Sortiert Zuhause' %}
+          {{ is_state(all_people_device_list[repeat.index-1][0],'home') }}
+        {% else %}
+          {{ repeat.index >= all_people_device_list | length }}
+        {% endif %}
+mode: single

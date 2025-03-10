@@ -1,0 +1,112 @@
+blueprint:
+  name: Fenster zu!
+  description: >
+    Notifies, when the window(s) can be closed again, based on the derivative of the humidity change.
+  domain: automation
+  author: Shentoza
+  input:
+    devices:
+      name: Zu prüfende Geräte
+      description: Geräte, deren mögliche Luftfeuchtigkeitsänderung berücksichtigt werden soll
+      selector:
+        entity:
+          domain: sensor
+          multiple: true
+    notification_timer:
+      name: Notification Timer
+      description: Input datetime entity to track the last notification time.
+      selector:
+        entity:
+          domain: input_datetime
+    notification_script:
+      name: Notification Script
+      description: The script to use for notifications.
+      selector:
+        entity: 
+          domain: script
+    outdoor_sensor:
+      name: Outdoor Temperature Sensor
+      description: The sensor to monitor the outdoor temperature.
+      selector:
+        entity:
+          domain: sensor
+    timer_duration:
+      name: Dauer 
+      description: Wie lange die Änderung über 0 sein muss, um als ausreichend zu gelten
+      default: 15.0
+      selector:
+        duration:
+    change_threshold:
+      name: Änderungsraten-Schwelle
+      description: Grenze, ab wann das Lüften nicht mehr notwendig ist
+      default: -3.0
+      selector:
+        number:
+          min: -20.0
+          max: 20.0
+          step: 0.1
+          unit_of_measurement: '%/h'
+
+variables:
+  devices: !input devices
+  timer_duration: !input timer_duration
+  change_threshold: !input change_threshold
+  notification_timer: !input notification_timer
+  now_timestamp: "{{ now().timestamp() }}"
+  next_notification_timestamp: "{{ as_timestamp(states('!input notification_timer')) | float(default=0) }}"
+
+triggers: 
+  - platform: numeric_state
+    id: t_humidity_reached
+    entity_id: !input devices
+    above: !input change_threshold
+    for:
+      !input timer_duration
+  - platform: numeric_state
+    id: t_too_warm
+    entity_id: !input outdoor_sensor
+    above: 24
+  
+
+condition:
+  - condition: template
+    value_template: >
+      {% set ns = namespace(result=false) %}
+      {% for device in devices %}
+        {% if states(device) | float(default=0) > change_threshold %}
+          {% set ns.result = true %}
+          {% break %}
+        {% endif %}
+      {% endfor %}
+      {{ ns.result }}
+  - condition: template
+    value_template: >
+      {{ now_timestamp < next_notification_timestamp }}
+
+action:
+  - variables:
+      sending_message: >
+        {% set ns = namespace(messages=[]) %}
+        {% for device in devices %}
+          {% set humidity_rate= states(device) | float %}
+          {% if humidity_rate > change_threshold %}
+            {% set area = area_name(device) %}
+            {% set ns.messages = ns.messages + ['- ' ~ area ~ 'fenster schließen'] %}
+          {% endif %}
+        {% endfor %}
+        {% if ns.messages | length > 0 %}
+          {{ ns.messages | join('\n') }}
+        {% endif %}
+  - action: !input notification_script
+    metadata: {}
+    data:
+      modus: 'Sortiert Zuhause'
+      message_data:
+        title: Fenster zu
+        message: "{{ sending_message }}"
+        data:
+          notification_icon: mdi:window-closed-variant
+          tag: CLOSE_WINDOW_NOTIFICATION
+          alert_once: true
+
+mode: single
