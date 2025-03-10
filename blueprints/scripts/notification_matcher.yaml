@@ -59,6 +59,7 @@ fields:
 sequence:
   - choose:
       - conditions: "{{ modus in ['Random Zuhause', 'Random'] }}"
+        alias: "Wähle Random Person?"
         sequence:
           - variables:
               random_person: >
