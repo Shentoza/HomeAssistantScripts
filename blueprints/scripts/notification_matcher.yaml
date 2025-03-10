@@ -24,6 +24,8 @@ variables:
   all_people_device_list: >
     {% set notifies = tracking_devices | map('regex_replace','^device_tracker\.','notify.mobile_app_') | list %}
     {{ zip(people,notifies) | list }}
+  people_at_home: >
+    {{ all_people_device_list | selectattr('0','in',states | selectattr('entity_id','in',people) | selectattr('state','eq','home') | map(attribute='entity_id') | list) | list }}
 
 fields:
   modus:
@@ -33,6 +35,8 @@ fields:
           - 'Alle'
           - 'Sortiert Zuhause'
           - 'Alle Zuhause'
+          - 'Random'
+          - 'Random Zuhause'
         multiple: false
     name: Modus
     required: true
@@ -53,21 +57,35 @@ fields:
             title: Test Action Text
 
 sequence:
-  - repeat:
-      sequence:
-        - condition: >
-            {% if modus in ['Alle Zuhause', 'Sortiert Zuhause'] %}
-              {{ is_state(all_people_device_list[repeat.index-1][0],'home') }}
-            {% else %}
-              true
-            {% endif %}
-        - service: >
-            {{ all_people_device_list[repeat.index-1][1] }}
-          data: "{{ message_data }}"
-      until: >
-        {% if modus == 'Sortiert Zuhause' %}
-          {{ is_state(all_people_device_list[repeat.index-1][0],'home') }}
-        {% else %}
-          {{ repeat.index >= all_people_device_list | length }}
-        {% endif %}
+  - choose:
+      - conditions: "{{ modus in ['Random Zuhause', 'Random'] }}"
+        sequence:
+          - variables:
+              random_person: >
+                {% if modus == 'Random Zuhause' %}
+                  {{ people_at_home | random }}
+                {% else %}
+                  {{ all_people_device_list | random }}
+                {% endif %}
+          - service: >
+              {{ random_person[1] }}
+            data: "{{ message_data }}"
+    default:
+    - repeat:
+        sequence:
+          - condition: >
+              {% if modus in ['Alle Zuhause', 'Sortiert Zuhause'] %}
+                {{ is_state(all_people_device_list[repeat.index-1][0],'home') }}
+              {% else %}
+                true
+              {% endif %}
+          - service: >
+              {{ all_people_device_list[repeat.index-1][1] }}
+            data: "{{ message_data }}"
+        until: >
+          {% if modus == 'Sortiert Zuhause' %}
+            {{ is_state(all_people_device_list[repeat.index-1][0],'home') }}
+          {% else %}
+            {{ repeat.index >= all_people_device_list | length }}
+          {% endif %}
 mode: single
