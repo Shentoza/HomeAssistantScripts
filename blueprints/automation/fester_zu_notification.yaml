@@ -53,7 +53,13 @@ variables:
   change_threshold: !input change_threshold
   notification_timer: !input notification_timer
   now_timestamp: "{{ now().timestamp() }}"
-  next_notification_timestamp: "{{ as_timestamp(states('!input notification_timer')) | float(default=0) }}"
+  next_notification_timestamp: >
+    {% set timer_state = states(notification_timer) %}
+    {% if timer_state not in ['unknown','undefined'] %}
+      {{ as_timestamp(timer_state) | float(default=0) }}
+    {% else %}
+      0
+    {% endif %}
 
 triggers: 
   - platform: numeric_state
