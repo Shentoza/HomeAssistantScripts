@@ -33,12 +33,11 @@ blueprint:
         entity:
           domain: person
           multiple: true
-    notification_script:
-      name: Notification Script
-      description: The script to use for notifications.
+    on_notify:
+      name: Notify Action
+      description: The action that should be done on notify
       selector:
-        entity: 
-          domain: script
+        action:
     humidity_difference_threshold:
       name: Humidity Difference Threshold
       description: The minimum humidity difference to trigger a notification.
@@ -123,20 +122,9 @@ action:
         {% else %}
           Keine Luftfeuchtigkeitsänderungen festgestellt.
         {% endif %}
-  - action: !input notification_script
-    metadata: {}
-    data: 
-      modus: 'Sortiert Zuhause'
-      message_data:
-        title: Lüften - Mögliche Änderung
-        message: "{{ sending_message }}"
-        data:
-          notification_icon: mdi:air-filter
-          tag: LUEFTEN_NOTIFICATION
-          alert_once: true
-          actions:
-            - action: LUEFTEN_ANSWERED
-              title: Lüften
+  - alias: "On Notify action"
+    choose: []
+    default: !input on_notify
   - wait_for_trigger:
       - platform: event
         event_type: mobile_app_notification_action

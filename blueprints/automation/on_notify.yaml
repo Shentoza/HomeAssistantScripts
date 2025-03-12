@@ -1,0 +1,22 @@
+blueprint:
+  name: On Notify test
+  domain: automation
+  author: Shentoza
+  input:
+    on_notify:
+      name: Notify Action
+      description: The action that should be done on notify
+      selector:
+        action:
+
+triggers:
+
+condition:
+action:
+  - variables:
+      sending_message: "Test!"
+  - alias: "On Notify action"
+    choose: []
+    default: !input on_notify
+
+mode: single

@@ -18,12 +18,11 @@ blueprint:
       selector:
         entity:
           domain: input_datetime
-    notification_script:
-      name: Notification Script
-      description: The script to use for notifications.
+    on_notify:
+      name: Notify Action
+      description: The action that should be done on notify
       selector:
-        entity: 
-          domain: script
+        action:
     outdoor_sensor:
       name: Outdoor Temperature Sensor
       description: The sensor to monitor the outdoor temperature.
@@ -103,16 +102,8 @@ action:
         {% if ns.messages | length > 0 %}
           {{ ns.messages | join('\n') }}
         {% endif %}
-  - action: !input notification_script
-    metadata: {}
-    data:
-      modus: 'Sortiert Zuhause'
-      message_data:
-        title: Fenster zu
-        message: "{{ sending_message }}"
-        data:
-          notification_icon: mdi:window-closed-variant
-          tag: CLOSE_WINDOW_NOTIFICATION
-          alert_once: true
+  - alias: "On Notify action"
+    choose: []
+    default: !input on_notify
 
 mode: single
