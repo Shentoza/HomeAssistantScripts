@@ -1,0 +1,73 @@
+blueprint:
+  name: Timer Notification
+  domain: script
+  author: Shentoza
+  description: |
+    Starts a timer and sends a notification via notification_matcher when it finishes.
+  input:
+    timer:
+      name: Timer Entity
+      description: The timer entity to use.
+      selector:
+        entity:
+          domain: timer
+
+fields:
+  dauer:
+    selector:
+      duration: {}
+    required: true
+    name: Dauer
+    description: Wie lange der Timer laufen soll
+  nachricht:
+    selector:
+      text:
+    name: Nachricht
+    default: Timer abgelaufen
+    required: true
+  modus:
+    selector:
+      select:
+        options:
+        - Alle
+        - Sortiert Zuhause
+        - Alle Zuhause
+        - Random
+        - Random Zuhause
+        multiple: false
+    name: Benachrichtungsmodus
+    required: true
+    default: Random Zuhause
+
+sequence:
+  - service: timer.start
+    data:
+      entity_id: !input timer
+      duration: "{{ dauer }}"
+  - wait_for_trigger:
+      - platform: event
+        event_type: timer.finished
+        event_data:
+          entity_id: !input timer
+      - platform: event
+        event_type: timer.cancelled
+        event_data:
+          entity_id: !input timer
+    continue_on_timeout: false
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: '{{ wait.trigger.event.event_type == "timer.finished"}}'
+        sequence:
+          - service: script.notification_matcher
+            data:
+              modus: "{{ modus }}"
+              message_data:
+                title: Timer abgelaufen
+                message: "{{ nachricht }}"
+                data:
+                  notification_icon: mdi:clock-time-eight-outline
+                  tag: "timer-{{ nachricht }}"
+                  alert_once: true
+mode: parallel
+max: 4
