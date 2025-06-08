@@ -57,21 +57,52 @@ fields:
             title: Test Action Text
 
 sequence:
-  - choose:
-      - conditions: "{{ modus in ['Random Zuhause', 'Random'] }}"
-        alias: "Wähle Random Person?"
-        sequence:
-          - variables:
-              random_person: >
-                {% if modus == 'Random Zuhause' %}
-                  {{ people_at_home | random }}
-                {% else %}
-                  {{ all_people_device_list | random }}
-                {% endif %}
-          - service: >
-              {{ random_person[1] }}
-            data: "{{ message_data }}"
-    default:
+  - if:
+      - alias: "Zufällig bestimmen, oder mehrere Benachrichtigen?"
+        condition: template
+        value_template: "{{ modus in ['Random', 'Random Zuhause'] }}"
+    then:
+      - choose:
+          - conditions: "{{ modus == 'Random Zuhause' and people_at_home | length > 0 }}"
+            alias: "Random Person Zuhause, aber niemand da?"
+            sequence:
+              - variables:
+                  selected_person: >
+                    {{ people_at_home | random }}
+          - conditions: "{{ modus == 'Random' }}"
+            alias: "Random Person"
+            sequence:
+              - variables:
+                  selected_person: >
+                    {{ all_people_device_list | random }}
+          - conditions: "{{ modus == 'Random Zuhause' and people_at_home | length <= 0 }}"
+            alias: "Warten bis Person heim kommt?"
+            sequence:
+              - wait_for_trigger:
+                  - platform: zone
+                    entity_id: !input people
+                    zone: zone.home
+                    event: enter
+              - variables:
+                  triggered_person: "{{ wait.trigger.entity_id }}"
+                  selected_person: >
+                    {% set personIndex = people.index(triggered_person) %}
+                    {{ all_people_device_list[personIndex][1] if personIndex != -1 else None }}
+      - service: >
+          {{ selected_person[1] }}
+        data: "{{ message_data }}"
+        alias: "Benachrichtige zufällig ausgewählte Person"
+    else:
+    - if:
+        - condition: template
+          alias: "Niemand zuhause, aber Modus Zuhause?"
+          value_template: "{{ modus in ['Alle Zuhause', 'Sortiert Zuhause'] and people_at_home | length <= 0 }}"
+      then:
+        - wait_for_trigger:
+            - platform: zone
+              entity_id: !input people
+              zone: zone.home
+              event: enter
     - repeat:
         sequence:
           - condition: >
