@@ -57,26 +57,27 @@ fields:
             title: Test Action Text
 
 sequence:
-  - if:
-      - alias: "Zufällig bestimmen, oder mehrere Benachrichtigen?"
+  - alias: "Benachrichtige Personen basierend auf Modus"
+    if:
+      - alias: "Modus Random oder Random Zuhause?"
         condition: template
         value_template: "{{ modus in ['Random', 'Random Zuhause'] }}"
     then:
       - choose:
           - conditions: "{{ modus == 'Random Zuhause' and people_at_home | length > 0 }}"
-            alias: "Random Person Zuhause, aber niemand da?"
+            alias: "Random Person Zuhause auswählen"
             sequence:
               - variables:
                   selected_person: >
                     {{ people_at_home | random }}
           - conditions: "{{ modus == 'Random' }}"
-            alias: "Random Person"
+            alias: "Random Person irgendwo wählen"
             sequence:
               - variables:
                   selected_person: >
                     {{ all_people_device_list | random }}
           - conditions: "{{ modus == 'Random Zuhause' and people_at_home | length <= 0 }}"
-            alias: "Warten bis Person heim kommt?"
+            alias: "Warten bis jemand Zuhause ist"
             sequence:
               - wait_for_trigger:
                   - platform: zone
@@ -98,12 +99,14 @@ sequence:
           alias: "Niemand zuhause, aber Modus Zuhause?"
           value_template: "{{ modus in ['Alle Zuhause', 'Sortiert Zuhause'] and people_at_home | length <= 0 }}"
       then:
-        - wait_for_trigger:
+        - alias: "Warten bis jemand Zuhause ist"
+          wait_for_trigger:
             - platform: zone
               entity_id: !input people
               zone: zone.home
               event: enter
-    - repeat:
+    - alias: "Benachrichtige alle Personen"
+      repeat:
         sequence:
           - condition: >
               {% if modus in ['Alle Zuhause', 'Sortiert Zuhause'] %}
