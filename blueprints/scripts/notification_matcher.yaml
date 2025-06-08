@@ -120,4 +120,4 @@ sequence:
           {% else %}
             {{ repeat.index >= all_people_device_list | length }}
           {% endif %}
-mode: single
+mode: parallel
