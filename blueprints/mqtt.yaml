@@ -1,0 +1,33 @@
+sensor:
+    - name: "Breitbandmessung Download"
+      state_topic: "mqtt-breitbandmessung"
+      value_template: "{{ value_json['Download (Mbit/s)'] }}"
+      unit_of_measurement: "Mbit/s"
+      device:
+        identifiers: ["breitbandmessung"]
+        name: "Breitbandmessung"
+        manufacturer: "HA Script"
+        model: "Speedtest"
+      unique_id: breitbandmessung_download
+
+    - name: "Breitbandmessung Upload"
+      state_topic: "mqtt-breitbandmessung"
+      value_template: "{{ value_json['Upload (Mbit/s)'] }}"
+      unit_of_measurement: "Mbit/s"
+      device:
+        identifiers: ["breitbandmessung"]
+        name: "Breitbandmessung"
+        manufacturer: "HA Script"
+        model: "Speedtest"
+      unique_id: breitbandmessung_upload
+
+    - name: "Breitbandmessung Ping"
+      state_topic: "mqtt-breitbandmessung"
+      value_template: "{{ value_json['Laufzeit (ms)'] }}"
+      unit_of_measurement: "ms"
+      device:
+        identifiers: ["breitbandmessung"]
+        name: "Breitbandmessung"
+        manufacturer: "HA Script"
+        model: "Speedtest"
+      unique_id: breitbandmessung_ping
