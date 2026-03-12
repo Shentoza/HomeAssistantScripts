@@ -70,11 +70,17 @@ sequence:
   - alias: Determine earliest event
     variables:
       blueprint_offset: !input offset_minutes
+      comment: '# Only consider events that have not yet started'
       all_events: >-
         {% set ns = namespace(events=[]) %}
+        {% set now_dt = now() %}
         {% for calendar, data in next_dates.items() %}
           {% for event in data.events %}
-            {% set ns.events = ns.events + [event.start] %}
+            {% set start = event.start | as_datetime %}
+            {% set end = event.end | as_datetime %}
+            {% if start and end and start > now_dt %}
+              {% set ns.events = ns.events + [event.start] %}
+            {% endif %}
           {% endfor %}
         {% endfor %}
         {{ ns.events | sort }}
