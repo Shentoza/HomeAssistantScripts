@@ -86,8 +86,8 @@ sequence:
         {% else %}
           {{ '' }}
         {% endif %}
-      alarm_hour: "{{ (alarm_dt | as_datetime).hour | string if alarm_dt != '' else '' }}"
-      alarm_minute: "{{ (alarm_dt | as_datetime).minute | string if alarm_dt != '' else '' }}"
+      alarm_hour: "{{ (alarm_dt | as_datetime).hour if alarm_dt != '' else '' }}"
+      alarm_minute: "{{ (alarm_dt | as_datetime).minute if alarm_dt != '' else '' }}"
   - alias: Abort if no event found
     condition: template
     value_template: "{{ next_start != '' }}"
@@ -98,8 +98,8 @@ sequence:
       derived_notify_service: >-
         {{ blueprint_notify_service | regex_replace('^device_tracker\.', 'notify.mobile_app_') }}
       extra_data: >-
-        {{ 'android.intent.extra.alarm.HOUR:' + alarm_hour
-          + ',android.intent.extra.alarm.MINUTES:' + alarm_minute
+        {{ 'android.intent.extra.alarm.HOUR:' + (alarm_hour | string)
+          + ',android.intent.extra.alarm.MINUTES:' + (alarm_minute | string)
           + ',android.intent.extra.alarm.SKIP_UI:true'
           + ',android.intent.extra.alarm.MESSAGE:' + blueprint_alarm_name }}
   - action: "{{ derived_notify_service }}"
