@@ -1,0 +1,107 @@
+blueprint:
+  name: Set Alarm from Calendar
+  domain: script
+  author: Shentoza
+  description: >-
+    Queries configurable calendars, finds the next upcoming event and sets
+    an alarm on the target device at the event's start time (minus an optional
+    offset). Can be instantiated separately for multiple people and devices.
+
+    ⚠️ Android only: This blueprint uses an Android-specific intent
+    (android.intent.action.SET_ALARM) via the Home Assistant Companion app
+    and will not work on iOS or other platforms.
+  source_url: https://github.com/Shentoza/HomeAssistantScripts/blob/main/blueprints/scripts/wecker_stellen.yaml
+  input:
+    calendar_ids:
+      name: Calendars
+      description: Which calendars should be checked for the next upcoming event?
+      selector:
+        entity:
+          domain: calendar
+          multiple: true
+    notify_service:
+      name: Notification Service
+      description: >-
+        The notify service of the target device to which the alarm intent will
+        be sent (e.g. notify.mobile_app_fp5).
+      selector:
+        select:
+          custom_value: true
+          options: []
+    alarm_name:
+      name: Alarm Name
+      description: The label shown for the alarm in the Android clock app.
+      default: Home Assistant
+      selector:
+        text:
+    offset_minutes:
+      name: Offset (Minutes)
+      description: How many minutes before the event start should the alarm go off?
+      default: 60
+      selector:
+        number:
+          min: 0
+          max: 240
+          step: 5
+          unit_of_measurement: min
+    search_duration_hours:
+      name: Search Duration (Hours)
+      description: >-
+        How many hours into the future should be searched for the next event?
+      default: 24
+      selector:
+        number:
+          min: 1
+          max: 168
+          step: 1
+          unit_of_measurement: h
+
+sequence:
+  - alias: Query calendars
+    action: calendar.get_events
+    target:
+      entity_id: !input calendar_ids
+    data:
+      duration:
+        hours: !input search_duration_hours
+        minutes: 0
+        seconds: 0
+    response_variable: next_dates
+  - alias: Determine earliest event
+    variables:
+      blueprint_offset: !input offset_minutes
+      all_events: >-
+        {% set ns = namespace(events=[]) %}
+        {% for calendar, data in next_dates.items() %}
+          {% for event in data.events %}
+            {% set ns.events = ns.events + [event.start] %}
+          {% endfor %}
+        {% endfor %}
+        {{ ns.events | sort }}
+      next_start: >-
+        {{ all_events | first if all_events | length > 0 else '' }}
+      alarm_dt: >-
+        {% if next_start != '' %}
+          {{ (next_start | as_datetime | as_local) - timedelta(minutes=(blueprint_offset | int)) }}
+        {% else %}
+          {{ '' }}
+        {% endif %}
+      alarm_hour: "{{ alarm_dt.hour | string if alarm_dt != '' else '' }}"
+      alarm_minute: "{{ alarm_dt.minute | string if alarm_dt != '' else '' }}"
+  - alias: Abort if no event found
+    condition: template
+    value_template: "{{ next_start != '' }}"
+  - alias: Build and send alarm intent
+    variables:
+      blueprint_alarm_name: !input alarm_name
+      extra_data: >-
+        {{ 'android.intent.extra.alarm.HOUR:' + alarm_hour
+          + ',android.intent.extra.alarm.MINUTES:' + alarm_minute
+          + ',android.intent.extra.alarm.SKIP_UI:true'
+          + ',android.intent.extra.alarm.MESSAGE:' + blueprint_alarm_name }}
+  - action: !input notify_service
+    data:
+      message: command_activity
+      data:
+        intent_action: android.intent.action.SET_ALARM
+        intent_extras: "{{ extra_data }}"
