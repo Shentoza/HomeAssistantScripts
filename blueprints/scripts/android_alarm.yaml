@@ -22,12 +22,12 @@ blueprint:
     notify_service:
       name: Notification Service
       description: >-
-        The notify service of the target device to which the alarm intent will
-        be sent (e.g. notify.mobile_app_fp5).
+        The device tracker of the target device. The notify service will be
+        derived automatically (e.g. device_tracker.fp5 → notify.mobile_app_fp5).
       selector:
-        select:
-          custom_value: true
-          options: []
+        entity:
+          domain: device_tracker
+          multiple: false
     alarm_name:
       name: Alarm Name
       description: The label shown for the alarm in the Android clock app.
@@ -94,12 +94,15 @@ sequence:
   - alias: Build and send alarm intent
     variables:
       blueprint_alarm_name: !input alarm_name
+      blueprint_notify_service: !input notify_service
+      derived_notify_service: >-
+        {{ blueprint_notify_service | regex_replace('^device_tracker\.', 'notify.mobile_app_') }}
       extra_data: >-
         {{ 'android.intent.extra.alarm.HOUR:' + alarm_hour
           + ',android.intent.extra.alarm.MINUTES:' + alarm_minute
           + ',android.intent.extra.alarm.SKIP_UI:true'
           + ',android.intent.extra.alarm.MESSAGE:' + blueprint_alarm_name }}
-  - action: !input notify_service
+  - action: "{{ derived_notify_service }}"
     data:
       message: command_activity
       data:
