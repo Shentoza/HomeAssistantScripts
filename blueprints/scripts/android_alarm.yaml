@@ -86,8 +86,8 @@ sequence:
         {% else %}
           {{ '' }}
         {% endif %}
-      alarm_hour: "{{ alarm_dt.hour | string if alarm_dt != '' else '' }}"
-      alarm_minute: "{{ alarm_dt.minute | string if alarm_dt != '' else '' }}"
+      alarm_hour: "{{ (alarm_dt | as_datetime).hour | string if alarm_dt != '' else '' }}"
+      alarm_minute: "{{ (alarm_dt | as_datetime).minute | string if alarm_dt != '' else '' }}"
   - alias: Abort if no event found
     condition: template
     value_template: "{{ next_start != '' }}"
