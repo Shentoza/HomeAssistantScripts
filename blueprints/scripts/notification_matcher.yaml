@@ -136,7 +136,7 @@ sequence:
   - choose:
       - conditions:
           - condition: template
-            value_template: "{{ (on_notify_action | default([])) | length > 0 }}"
+            value_template: "{{ on_notify_action is not none }}"
         sequence: !input on_notify_action
 
 mode: parallel
