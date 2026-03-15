@@ -1,0 +1,123 @@
+blueprint:
+  name: Sonos Voice Notification (Smart + Night Mode + Flexible TTS)
+  description: >
+    Spielt TTS oder Audio-Dateien auf Sonos ab.
+    Erkennt Media-Dateien automatisch.
+    Unterstützt Nachtruhe.
+    Nutzt Snapshot nur bei echtem Bedarf.
+  domain: script
+  input:
+    target_player:
+      name: Sonos Player
+      selector:
+        entity:
+          domain: media_player
+
+    message_or_media:
+      name: Text oder Audio-Datei
+      description: >
+        TTS Text oder Dateiname (z.B. doorbell.mp3)
+      selector:
+        text:
+
+    tts_service:
+      name: TTS Service
+      description: z.B. tts.cloud_say oder tts.google_translate_say
+      default: tts.cloud_say
+      selector:
+        text:
+
+    tts_language:
+      name: TTS Sprache (optional)
+      default: ""
+      selector:
+        text:
+
+    volume:
+      name: Lautstärke (optional)
+      description: >
+        Wird direkt gesetzt, KEIN Snapshot/Restore.
+      default: null
+      selector:
+        number:
+          min: 0
+          max: 1
+          step: 0.05
+
+    quiet_start:
+      name: Nachtruhe Start
+      default: "22:00:00"
+      selector:
+        time:
+
+    quiet_end:
+      name: Nachtruhe Ende
+      default: "06:00:00"
+      selector:
+        time:
+
+mode: parallel
+
+variables:
+  is_media: >
+    {{ message_or_media | lower | regex_match('.*\.(mp3|wav|ogg)$') }}
+
+  in_quiet_hours: >
+    {% set now_t = now().time() %}
+    {% set start = strptime(quiet_start, '%H:%M:%S').time() %}
+    {% set end = strptime(quiet_end, '%H:%M:%S').time() %}
+    {% if start < end %}
+      {{ start <= now_t < end }}
+    {% else %}
+      {{ now_t >= start or now_t < end }}
+    {% endif %}
+
+sequence:
+  # --- NACHTRUHE ---
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ in_quiet_hours }}"
+        sequence:
+          - stop: "Nachtruhe aktiv"
+
+  # --- OPTIONALE LAUTSTÄRKE ---
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ volume is not none }}"
+        sequence:
+          - service: media_player.volume_set
+            target:
+              entity_id: !input target_player
+            data:
+              volume_level: !input volume
+
+  # --- MEDIA ODER TTS ---
+  - choose:
+      # MEDIA
+      - conditions:
+          - condition: template
+            value_template: "{{ is_media }}"
+        sequence:
+          - service: media_player.play_media
+            target:
+              entity_id: !input target_player
+            data:
+              media_content_id: "/media/audio/{{ message_or_media }}"
+              media_content_type: music
+              announce: true
+
+      # TTS
+      - conditions:
+          - condition: template
+            value_template: "{{ not is_media }}"
+        sequence:
+          - service: !input tts_service
+            target:
+              entity_id: !input target_player
+            data:
+              message: "{{ message_or_media }}"
+              language: "{{ tts_language if tts_language != '' else omit }}"
+              options:
+                announce: true
