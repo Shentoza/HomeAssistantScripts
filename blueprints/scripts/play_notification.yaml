@@ -13,36 +13,12 @@ blueprint:
         entity:
           domain: media_player
 
-    message_or_media:
-      name: Text oder Audio-Datei
-      description: >
-        TTS Text oder Dateiname (z.B. doorbell.mp3)
-      selector:
-        text:
-
     tts_service:
       name: TTS Service
       description: z.B. tts.cloud_say oder tts.google_translate_say
       default: tts.cloud_say
       selector:
         text:
-
-    tts_language:
-      name: TTS Sprache (optional)
-      default: ""
-      selector:
-        text:
-
-    volume:
-      name: Lautstärke (optional)
-      description: >
-        Wird direkt gesetzt, KEIN Snapshot/Restore.
-      default: null
-      selector:
-        number:
-          min: 0
-          max: 1
-          step: 0.05
 
     quiet_start:
       name: Nachtruhe Start
@@ -57,6 +33,31 @@ blueprint:
         time:
 
 mode: parallel
+
+fields:
+  message_or_media:
+    name: Text oder Audio-Datei
+    description: >
+      TTS Text oder Dateiname (z.B. doorbell.mp3)
+    selector:
+      text:
+
+  volume:
+    name: Lautstärke (optional)
+    description: >
+      Wird direkt gesetzt, KEIN Snapshot/Restore.
+    default: null
+    selector:
+      number:
+        min: 0
+        max: 1
+        step: 0.05
+
+    tts_language:
+      name: TTS Sprache (optional)
+      default: ""
+      selector:
+        text:
 
 variables:
   is_media: >
