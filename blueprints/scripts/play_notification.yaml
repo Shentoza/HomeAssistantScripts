@@ -130,5 +130,3 @@ sequence:
               media_player_entity_id: "{{ target_player }}"
               message: "{{ message_or_media }}"
               language: "{{ tts_language if tts_language != '' else omit }}"
-              options:
-                announce: true
