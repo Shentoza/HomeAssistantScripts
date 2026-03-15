@@ -18,7 +18,8 @@ blueprint:
       description: z.B. tts.cloud_say oder tts.google_translate_say
       default: tts.cloud_say
       selector:
-        text:
+        entity:
+          domain: tts
 
     quiet_start:
       name: Nachtruhe Start
