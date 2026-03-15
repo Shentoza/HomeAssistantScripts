@@ -18,9 +18,16 @@ blueprint:
         entity:
           domain: device_tracker
           multiple: true
+    on_notify_action:
+      name: Nach-Benachrichtigung Aktion (optional)
+      description: Script oder Service, das nach dem Versenden der Benachrichtigungen ausgeführt wird
+      default: ""
+      selector:
+        text:
 variables:
   people: !input people
   tracking_devices: !input tracking_devices
+  on_notify_action: !input on_notify_action
   all_people_device_list: >
     {% set notifies = tracking_devices | map('regex_replace','^device_tracker\.','notify.mobile_app_') | list %}
     {{ zip(people,notifies) | list }}
@@ -32,15 +39,15 @@ fields:
     selector:
       select:
         options:
-          - 'Alle'
-          - 'Sortiert Zuhause'
-          - 'Alle Zuhause'
-          - 'Random'
-          - 'Random Zuhause'
+          - "Alle"
+          - "Sortiert Zuhause"
+          - "Alle Zuhause"
+          - "Random"
+          - "Random Zuhause"
         multiple: false
     name: Modus
     required: true
-    default: 'Sortiert Zuhause'
+    default: "Sortiert Zuhause"
   message_data:
     selector:
       object: {}
@@ -94,33 +101,43 @@ sequence:
         data: "{{ message_data }}"
         alias: "Benachrichtige zufällig ausgewählte Person"
     else:
-    - if:
-        - condition: template
-          alias: "Niemand zuhause, aber Modus Zuhause?"
-          value_template: "{{ modus in ['Alle Zuhause', 'Sortiert Zuhause'] and people_at_home | length <= 0 }}"
-      then:
-        - alias: "Warten bis jemand Zuhause ist"
-          wait_for_trigger:
-            - platform: zone
-              entity_id: !input people
-              zone: zone.home
-              event: enter
-    - alias: "Benachrichtige alle Personen"
-      repeat:
+      - if:
+          - condition: template
+            alias: "Niemand zuhause, aber Modus Zuhause?"
+            value_template: "{{ modus in ['Alle Zuhause', 'Sortiert Zuhause'] and people_at_home | length <= 0 }}"
+        then:
+          - alias: "Warten bis jemand Zuhause ist"
+            wait_for_trigger:
+              - platform: zone
+                entity_id: !input people
+                zone: zone.home
+                event: enter
+      - alias: "Benachrichtige alle Personen"
+        repeat:
+          sequence:
+            - condition: >
+                {% if modus in ['Alle Zuhause', 'Sortiert Zuhause'] %}
+                  {{ is_state(all_people_device_list[repeat.index-1][0],'home') }}
+                {% else %}
+                  true
+                {% endif %}
+            - service: >
+                {{ all_people_device_list[repeat.index-1][1] }}
+              data: "{{ message_data }}"
+          until: >
+            {% if modus == 'Sortiert Zuhause' %}
+              {{ is_state(all_people_device_list[repeat.index-1][0],'home') }}
+            {% else %}
+              {{ repeat.index >= all_people_device_list | length }}
+            {% endif %}
+
+  # --- NACH-BENACHRICHTIGUNG AKTION ---
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ on_notify_action != '' }}"
         sequence:
-          - condition: >
-              {% if modus in ['Alle Zuhause', 'Sortiert Zuhause'] %}
-                {{ is_state(all_people_device_list[repeat.index-1][0],'home') }}
-              {% else %}
-                true
-              {% endif %}
-          - service: >
-              {{ all_people_device_list[repeat.index-1][1] }}
-            data: "{{ message_data }}"
-        until: >
-          {% if modus == 'Sortiert Zuhause' %}
-            {{ is_state(all_people_device_list[repeat.index-1][0],'home') }}
-          {% else %}
-            {{ repeat.index >= all_people_device_list | length }}
-          {% endif %}
+          - service: "{{ on_notify_action }}"
+            data: {}
+
 mode: parallel

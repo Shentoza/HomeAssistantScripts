@@ -23,13 +23,13 @@ blueprint:
 
     quiet_start:
       name: Nachtruhe Start
-      default: "22:00:00"
+      default: "23:00:00"
       selector:
         time:
 
     quiet_end:
       name: Nachtruhe Ende
-      default: "06:00:00"
+      default: "06:30:00"
       selector:
         time:
 
@@ -87,6 +87,16 @@ sequence:
       - conditions:
           - condition: template
             value_template: "{{ in_quiet_hours }}"
+        sequence:
+          - stop: "Nachtruhe aktiv"
+
+  # --- OPTIONALE LAUTSTÄRKE ---
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ volume is not none }}"
+        sequence:
+          - service: media_player.volume_set
             target:
               entity_id: "{{ target_player }}"
             data:
