@@ -28,7 +28,7 @@ variables:
   people: !input people
   tracking_devices: !input tracking_devices
   on_notify_action: !input on_notify_action
-  selected_person: ""
+  selected_person: ["", ""]
   all_people_device_list: >
     {% set notifies = tracking_devices | map('regex_replace','^device_tracker\.','notify.mobile_app_') | list %}
     {{ zip(people,notifies) | list }}
@@ -96,7 +96,7 @@ sequence:
                   triggered_person: "{{ wait.trigger.entity_id }}"
                   selected_person: >
                     {% set personIndex = people.index(triggered_person) %}
-                    {{ all_people_device_list[personIndex][1] if personIndex != -1 else None }}
+                    {{ all_people_device_list[personIndex] if personIndex != -1 else None }}
       - service: >
           {{ selected_person[1] }}
         data: "{{ message_data }}"
