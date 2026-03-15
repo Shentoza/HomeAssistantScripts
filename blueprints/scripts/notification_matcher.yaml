@@ -21,9 +21,9 @@ blueprint:
     on_notify_action:
       name: Nach-Benachrichtigung Aktion (optional)
       description: Script oder Service, das nach dem Versenden der Benachrichtigungen ausgeführt wird
-      default: ""
       selector:
-        text:
+        action:
+      default: []
 variables:
   people: !input people
   tracking_devices: !input tracking_devices
