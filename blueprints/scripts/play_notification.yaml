@@ -122,10 +122,12 @@ sequence:
           - condition: template
             value_template: "{{ not is_media }}"
         sequence:
-          - service: "{{ tts_service }}"
+          - service: tts.speak
             target:
-              entity_id: "{{ target_player }}"
+              entity_id: "{{ tts_service }}"
             data:
+              cache: true
+              media_player_entity_id: "{{ target_player }}"
               message: "{{ message_or_media }}"
               language: "{{ tts_language if tts_language != '' else omit }}"
               options:
