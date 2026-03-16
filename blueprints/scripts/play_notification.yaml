@@ -39,10 +39,19 @@ fields:
   message_or_media:
     name: Text oder Audio-Datei
     description: >
-      TTS Text oder Dateiname (z.B. doorbell.mp3)
+      TTS Text oder Dateiname (z.B. doorbell.mp3 — wird in media-source://media_source/local/audio/ gesucht)
     default: ""
     selector:
       text:
+
+  media_file:
+    name: Media-Datei (optional)
+    description: >
+      Wähle eine Audiodatei direkt aus der Medienbibliothek.
+      Hat Vorrang vor "Text oder Audio-Datei".
+    default: {}
+    selector:
+      media: {}
 
   volume:
     name: Lautstärke (optional)
@@ -68,8 +77,14 @@ variables:
   quiet_end_time: !input quiet_end
 
   # Berechnete Werte
-  is_media: >
+  has_media_file: >
+    {{ media_file is mapping and media_file.get('media_content_id', '') != '' }}
+
+  is_audio_string: >
     {{ message_or_media | lower | regex_match('.*\.(mp3|wav|ogg)$') }}
+
+  is_media: >
+    {{ has_media_file or (message_or_media | lower | regex_match('.*\.(mp3|wav|ogg)$')) }}
 
   in_quiet_hours: >
     {% set now_t = now().time() %}
@@ -104,16 +119,29 @@ sequence:
 
   # --- MEDIA ODER TTS ---
   - choose:
-      # MEDIA
+      # MEDIA PICKER (hat Vorrang)
       - conditions:
           - condition: template
-            value_template: "{{ is_media }}"
+            value_template: "{{ has_media_file }}"
         sequence:
           - service: media_player.play_media
             target:
               entity_id: "{{ target_player }}"
             data:
-              media_content_id: "/media/audio/{{ message_or_media }}"
+              media_content_id: "{{ media_file.media_content_id }}"
+              media_content_type: "{{ media_file.media_content_type }}"
+              announce: true
+
+      # AUDIO STRING → media-source Pfad suchen
+      - conditions:
+          - condition: template
+            value_template: "{{ is_audio_string }}"
+        sequence:
+          - service: media_player.play_media
+            target:
+              entity_id: "{{ target_player }}"
+            data:
+              media_content_id: "media-source://media_source/local/audio/{{ message_or_media }}"
               media_content_type: music
               announce: true
 
