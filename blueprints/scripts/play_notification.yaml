@@ -49,9 +49,10 @@ fields:
     description: >
       Wähle eine Audiodatei direkt aus der Medienbibliothek.
       Hat Vorrang vor "Text oder Audio-Datei".
-    default: {}
     selector:
-      media: {}
+      media:
+        accept:
+          - audio/*
 
   volume:
     name: Lautstärke (optional)
