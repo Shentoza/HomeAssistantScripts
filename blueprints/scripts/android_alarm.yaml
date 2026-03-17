@@ -60,6 +60,7 @@ blueprint:
       description: >-
         This calendar will be excluded from the search when the ignore condition
         below is active. Leave empty to disable this feature.
+        ⚠️ This calendar must also be listed in the Calendars input above.
       default: ""
       selector:
         entity:
@@ -88,43 +89,49 @@ sequence:
     response_variable: next_dates
   - alias: Initialize ignore flag
     variables:
+      blueprint_ignore_calendar: !input ignore_calendar
+      blueprint_offset: !input offset_minutes
       ignore_active: false
   - alias: Evaluate ignore condition
     choose:
-      - conditions: !input ignore_condition
+      - conditions:
+          - condition: template
+            value_template: "{{ blueprint_ignore_calendar != '' }}"
+          - !input ignore_condition
         sequence:
           - variables:
               ignore_active: true
   - alias: Determine earliest event
     variables:
-      blueprint_offset: !input offset_minutes
-      blueprint_ignore_calendar: !input ignore_calendar
-      comment: "# Only consider events that have not yet started"
-      all_events: >-
+      next_start: >-
+        {#
+          ISO 8601: date-only strings are exactly 10 chars (YYYY-MM-DD).
+          Timed events are always longer. Using length > 10 is more robust than
+          'T' in event.start, which fails if the integration returns a native
+          datetime object instead of a string.
+        #}
         {% set ns = namespace(events=[]) %}
         {% set now_dt = now() %}
         {% for calendar, data in next_dates.items() %}
-          {% if not (ignore_active and calendar == blueprint_ignore_calendar) %}
+          {% if not ((ignore_active | bool) and calendar == blueprint_ignore_calendar) %}
             {% for event in data.events %}
-              {% set start = event.start | as_datetime %}
-              {% set end = event.end | as_datetime %}
-              {% if start and end and start > now_dt %}
-                {% set ns.events = ns.events + [event.start] %}
+              {% set start_str = event.start | string %}
+              {% if start_str | length > 10 %}
+                {% set start = start_str | as_datetime %}
+                {% if start is not none and start > now_dt %}
+                  {% set ns.events = ns.events + [start_str] %}
+                {% endif %}
               {% endif %}
             {% endfor %}
           {% endif %}
         {% endfor %}
-        {{ ns.events | sort }}
-      next_start: >-
-        {{ all_events | first if all_events | length > 0 else '' }}
-      alarm_dt: >-
-        {% if next_start != '' %}
-          {{ (next_start | as_datetime | as_local) - timedelta(minutes=(blueprint_offset | int)) }}
-        {% else %}
-          {{ '' }}
-        {% endif %}
-      alarm_hour: "{{ (alarm_dt | as_datetime).hour if alarm_dt != '' else '' }}"
-      alarm_minute: "{{ (alarm_dt | as_datetime).minute if alarm_dt != '' else '' }}"
+        {{ (ns.events | sort | first) if ns.events else '' }}
+      alarm_hour: >-
+        {{ '' if next_start == ''
+          else ((next_start | as_datetime | as_local) - timedelta(minutes=blueprint_offset | int)).hour }}
+      alarm_minute: >-
+        {{ '' if next_start == '' 
+          else ((next_start | as_datetime | as_local) - timedelta(minutes=blueprint_offset | int)).minute }}
   - alias: Abort if no event found
     condition: template
     value_template: "{{ next_start != '' }}"
