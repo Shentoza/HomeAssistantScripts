@@ -56,23 +56,22 @@ blueprint:
           step: 1
           unit_of_measurement: h
     ignore_calendar:
-      name: Ignored Calendar (optional)
+      name: Ignored Calendars (optional)
       description: >-
-        This calendar will be excluded from the search when the ignore condition
+        These calendars will be excluded from the search when the ignore condition
         below is active. Leave empty to disable this feature.
-        ⚠️ This calendar must also be listed in the Calendars input above.
-      default: ""
+        ⚠️ These calendars must also be listed in the Calendars input above.
+      default: []
       selector:
         entity:
           domain: calendar
-          multiple: false
+          multiple: true
     ignore_condition:
       name: Ignore Condition (optional)
       description: >-
-        When this entity is 'on', the calendar configured above will be ignored.
-        Typically an input_boolean (e.g. "Day off") or a binary_sensor
-        (e.g. a workday sensor). Leave empty to disable this feature.
-      default: ""
+        When this condition is met, the calendars configured above will be ignored.
+        Leave empty to disable this feature.
+      default: []
       selector:
         condition:
 
@@ -87,17 +86,16 @@ sequence:
         minutes: 0
         seconds: 0
     response_variable: next_dates
-  - alias: Initialize ignore flag
+  - alias: Initialize variables
     variables:
       blueprint_ignore_calendar: !input ignore_calendar
       blueprint_offset: !input offset_minutes
+      blueprint_alarm_name: !input alarm_name
+      blueprint_notify_service: !input notify_service
       ignore_active: false
   - alias: Evaluate ignore condition
     choose:
-      - conditions:
-          - condition: template
-            value_template: "{{ blueprint_ignore_calendar != '' }}"
-          - !input ignore_condition
+      - conditions: !input ignore_condition
         sequence:
           - variables:
               ignore_active: true
@@ -113,7 +111,7 @@ sequence:
         {% set ns = namespace(events=[]) %}
         {% set now_dt = now() %}
         {% for calendar, data in next_dates.items() %}
-          {% if not ((ignore_active | bool) and calendar == blueprint_ignore_calendar) %}
+          {% if not ((ignore_active | bool) and calendar in blueprint_ignore_calendar) %}
             {% for event in data.events %}
               {% set start_str = event.start | string %}
               {% if start_str | length > 10 %}
@@ -137,8 +135,6 @@ sequence:
     value_template: "{{ next_start != '' }}"
   - alias: Build and send alarm intent
     variables:
-      blueprint_alarm_name: !input alarm_name
-      blueprint_notify_service: !input notify_service
       derived_notify_service: >-
         {{ blueprint_notify_service | regex_replace('^device_tracker\.', 'notify.mobile_app_') }}
       extra_data: >-
