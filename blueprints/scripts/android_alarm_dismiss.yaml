@@ -26,11 +26,11 @@ blueprint:
     label_store:
       name: Alarm Label Store
       description: >-
-        Entity ID of the input_text helper configured in the "Set Alarm from
-        Calendar" blueprint. The dismiss script reads the exact label from it.
-        Example: input_text.alarm_label_fp5
+        The input_text helper configured in the "Set Alarm from Calendar"
+        blueprint. The dismiss script reads the exact label from it.
       selector:
-        text:
+        entity:
+          domain: input_text
 
 sequence:
   - alias: Dismiss alarm by label

@@ -79,15 +79,13 @@ blueprint:
       selector:
         condition:
     label_store:
-      name: Alarm Label Store (optional)
+      name: Alarm Label Store
       description: >-
-        Entity ID of an input_text helper where the label of the last set
-        alarm is stored. Required if you want to use the companion dismiss
-        blueprint. Leave empty to disable.
-        Example: input_text.alarm_label_fp5
-      default: ""
+        An input_text helper where the label of the last set alarm is stored.
+        Required for the companion dismiss blueprint.
       selector:
-        text:
+        entity:
+          domain: input_text
 
 sequence:
   - alias: Query calendars
