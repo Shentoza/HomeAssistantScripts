@@ -23,26 +23,25 @@ blueprint:
         entity:
           domain: device_tracker
           multiple: false
-    label_store:
-      name: Alarm Label Store
+    alarm_name:
+      name: Alarm Name
       description: >-
-        The input_text helper configured in the "Set Alarm from Calendar"
-        blueprint. The dismiss script reads the exact label from it.
+        The fixed label of the alarm to dismiss. Must match exactly the name
+        configured in the "Set Alarm from Calendar" blueprint.
+      default: Home Assistant
       selector:
-        entity:
-          domain: input_text
+        text:
 
 sequence:
   - alias: Dismiss alarm by label
     variables:
       blueprint_notify_service: !input notify_service
-      blueprint_label_store: !input label_store
-      blueprint_alarm_label: "{{ states(blueprint_label_store) }}"
+      blueprint_alarm_name: !input alarm_name
       derived_notify_service: >-
         {{ blueprint_notify_service | regex_replace('^device_tracker\.', 'notify.mobile_app_') }}
       extra_data: >-
-        {{ 'android.intent.extra.alarm.SEARCH_MODE:android.label'
-          + ',android.intent.extra.alarm.MESSAGE:' + blueprint_alarm_label }}
+        {{ 'android.intent.extra.alarm.SEARCH_MODE:android.intent.extra.alarm.SEARCH_MODE_LABEL'
+          + ',android.intent.extra.alarm.MESSAGE:' + blueprint_alarm_name }}
   - action: "{{ derived_notify_service }}"
     data:
       message: command_activity
