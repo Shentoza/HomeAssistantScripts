@@ -3,15 +3,12 @@ blueprint:
   domain: script
   author: Shentoza
   description: >-
-    Dismisses an alarm on an Android device by searching for its label via
-    DISMISS_ALARM + SEARCH_MODE_LABEL.
+    Dismisses an alarm on an Android device by reading the exact label from
+    an input_text helper and passing it to DISMISS_ALARM + SEARCH_MODE_LABEL.
 
-    Use this together with the "Set Alarm from Calendar" blueprint, which always
-    appends " - HA" to the alarm label (e.g. "Arzttermin - HA"). The default
-    search value "- HA" will match all alarms created by that blueprint.
-
-    SEARCH_MODE_LABEL matches alarms whose label contains the given phrase,
-    so a partial search term like "- HA" is sufficient.
+    Use this together with the "Set Alarm from Calendar" blueprint. Configure
+    the same input_text helper in both blueprints -- the set blueprint writes
+    the label after every alarm, the dismiss blueprint reads it back.
 
     ⚠️ Android only: Uses android.intent.action.DISMISS_ALARM via the Home
     Assistant Companion app and will not work on iOS or other platforms.
@@ -26,13 +23,12 @@ blueprint:
         entity:
           domain: device_tracker
           multiple: false
-    alarm_label:
-      name: Alarm Label to Search
+    label_store:
+      name: Alarm Label Store
       description: >-
-        The phrase to search for in alarm labels. SEARCH_MODE_LABEL matches
-        any alarm whose label contains this value, so "- HA" (the default)
-        dismisses all alarms created by the calendar alarm blueprint.
-      default: "- HA"
+        Entity ID of the input_text helper configured in the "Set Alarm from
+        Calendar" blueprint. The dismiss script reads the exact label from it.
+        Example: input_text.alarm_label_fp5
       selector:
         text:
 
@@ -40,7 +36,8 @@ sequence:
   - alias: Dismiss alarm by label
     variables:
       blueprint_notify_service: !input notify_service
-      blueprint_alarm_label: !input alarm_label
+      blueprint_label_store: !input label_store
+      blueprint_alarm_label: "{{ states(blueprint_label_store) }}"
       derived_notify_service: >-
         {{ blueprint_notify_service | regex_replace('^device_tracker\.', 'notify.mobile_app_') }}
       extra_data: >-

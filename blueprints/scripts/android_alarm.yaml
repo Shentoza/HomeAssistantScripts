@@ -32,7 +32,7 @@ blueprint:
       name: Alarm Name (Fallback)
       description: >-
         The label shown for the alarm in the Android clock app. Used as a
-        fallback when the calendar event has no summary. The suffix " - HA"
+        fallback when the calendar event has no summary. The suffix " -HA"
         is always appended so that alarms can be identified and dismissed
         by the companion dismiss script.
       default: Home Assistant
@@ -78,6 +78,16 @@ blueprint:
       default: []
       selector:
         condition:
+    label_store:
+      name: Alarm Label Store (optional)
+      description: >-
+        Entity ID of an input_text helper where the label of the last set
+        alarm is stored. Required if you want to use the companion dismiss
+        blueprint. Leave empty to disable.
+        Example: input_text.alarm_label_fp5
+      default: ""
+      selector:
+        text:
 
 sequence:
   - alias: Query calendars
@@ -96,6 +106,7 @@ sequence:
       blueprint_offset: !input offset_minutes
       blueprint_alarm_name: !input alarm_name
       blueprint_notify_service: !input notify_service
+      blueprint_label_store: !input label_store
       ignore_active: false
   - alias: Evaluate ignore condition
     choose:
@@ -148,12 +159,12 @@ sequence:
       effective_alarm_name: >-
         {#
           Use the event summary as the alarm label. Truncate to 45 chars to
-          leave room for the ' - HA' suffix (total <= 50 chars). Fall back to
+          leave room for the ' -HA' suffix (total <= 50 chars). Fall back to
           the configured alarm_name input if the event has no summary.
-          The ' - HA' suffix is always appended so the companion dismiss script
-          can locate the alarm via SEARCH_MODE_LABEL (contains-match).
+          The ' -HA' suffix is always appended so the companion dismiss script
+          can locate the alarm via SEARCH_MODE_LABEL (exact-match).
         #}
-        {% set suffix = ' - HA' %}
+        {% set suffix = ' -HA' %}
         {% set base = next_event_summary if next_event_summary else blueprint_alarm_name %}
         {{ base[:45] + suffix }}
       extra_data: >-
@@ -167,3 +178,11 @@ sequence:
       data:
         intent_action: android.intent.action.SET_ALARM
         intent_extras: "{{ extra_data }}"
+  - alias: Store alarm label for dismiss script
+    if: "{{ blueprint_label_store != '' }}"
+    then:
+      - action: input_text.set_value
+        target:
+          entity_id: "{{ blueprint_label_store }}"
+        data:
+          value: "{{ effective_alarm_name }}"
