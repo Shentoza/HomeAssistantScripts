@@ -29,8 +29,12 @@ blueprint:
           domain: device_tracker
           multiple: false
     alarm_name:
-      name: Alarm Name
-      description: The label shown for the alarm in the Android clock app.
+      name: Alarm Name (Fallback)
+      description: >-
+        The label shown for the alarm in the Android clock app. Used as a
+        fallback when the calendar event has no summary. The suffix " - HA"
+        is always appended so that alarms can be identified and dismissed
+        by the companion dismiss script.
       default: Home Assistant
       selector:
         text:
@@ -101,8 +105,10 @@ sequence:
               ignore_active: true
   - alias: Determine earliest event
     variables:
-      next_start: >-
+      next_event: >-
         {#
+          Collect all upcoming timed events across calendars into a list of
+          dicts with 'start' and 'summary', then pick the earliest one.
           ISO 8601: date-only strings are exactly 10 chars (YYYY-MM-DD).
           Timed events are always longer. Using length > 10 is more robust than
           'T' in event.start, which fails if the integration returns a native
@@ -117,13 +123,15 @@ sequence:
               {% if start_str | length > 10 %}
                 {% set start = start_str | as_datetime %}
                 {% if start is not none and start > now_dt %}
-                  {% set ns.events = ns.events + [start_str] %}
+                  {% set ns.events = ns.events + [{'start': start_str, 'summary': event.summary | default('')}] %}
                 {% endif %}
               {% endif %}
             {% endfor %}
           {% endif %}
         {% endfor %}
-        {{ (ns.events | sort | first) if ns.events else '' }}
+        {{ ns.events | sort(attribute='start') | first if ns.events else none }}
+      next_start: "{{ next_event.start if next_event else '' }}"
+      next_event_summary: "{{ next_event.summary if next_event else '' }}"
       alarm_hour: >-
         {{ '' if next_start == ''
           else ((next_start | as_datetime | as_local) - timedelta(minutes=blueprint_offset | int)).hour }}
@@ -137,11 +145,22 @@ sequence:
     variables:
       derived_notify_service: >-
         {{ blueprint_notify_service | regex_replace('^device_tracker\.', 'notify.mobile_app_') }}
+      effective_alarm_name: >-
+        {#
+          Use the event summary as the alarm label. Truncate to 45 chars to
+          leave room for the ' - HA' suffix (total <= 50 chars). Fall back to
+          the configured alarm_name input if the event has no summary.
+          The ' - HA' suffix is always appended so the companion dismiss script
+          can locate the alarm via SEARCH_MODE_LABEL (contains-match).
+        #}
+        {% set suffix = ' - HA' %}
+        {% set base = next_event_summary if next_event_summary else blueprint_alarm_name %}
+        {{ base[:45] + suffix }}
       extra_data: >-
         {{ 'android.intent.extra.alarm.HOUR:' + (alarm_hour | string)
           + ',android.intent.extra.alarm.MINUTES:' + (alarm_minute | string)
           + ',android.intent.extra.alarm.SKIP_UI:true'
-          + ',android.intent.extra.alarm.MESSAGE:' + blueprint_alarm_name }}
+          + ',android.intent.extra.alarm.MESSAGE:' + effective_alarm_name }}
   - action: "{{ derived_notify_service }}"
     data:
       message: command_activity
