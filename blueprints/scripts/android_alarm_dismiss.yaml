@@ -44,7 +44,7 @@ sequence:
       derived_notify_service: >-
         {{ blueprint_notify_service | regex_replace('^device_tracker\.', 'notify.mobile_app_') }}
       extra_data: >-
-        {{ 'android.intent.extra.alarm.SEARCH_MODE:android.intent.extra.alarm.SEARCH_MODE_LABEL'
+        {{ 'android.intent.extra.alarm.SEARCH_MODE:android.label'
           + ',android.intent.extra.alarm.MESSAGE:' + blueprint_alarm_label }}
   - action: "{{ derived_notify_service }}"
     data:
